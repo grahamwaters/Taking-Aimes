@@ -1,4 +1,4 @@
-# Project 2: Regression Analysis of Conspicuous Consumption Factors in the Ames, Iowa Housing Market
+# Taking Aimes - Regression Analysis of Conspicuous Consumption Factors in the Ames, Iowa Housing Market
 **DSI-822 - General Assembly**
 
 **Graham Waters**
