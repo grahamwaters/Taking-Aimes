@@ -111,6 +111,8 @@ If a column has fewer than 50% missing values, we will be imputing the missing v
 
 ### Positively Correlated Features with Sale Price
 
+These features are positively correlated with the target variable. This means that as the value of the feature increases, the value of the target variable increases. This is good because it means that the feature is a good predictor of the target variable.
+
 | Feature | Correlation with Sale Price |
 |---------|-----------------------------|
 Overall Qual | 0.80
@@ -127,6 +129,8 @@ Mas Vnr Area | 0.51
 
 ### Negatively Correlated Features with Sale Price
 
+These features are negatively correlated with the target variable. This means that as the value of the feature increases, the value of the target variable decreases. This is still good because it means that the feature is also a good predictor of the target variable.
+
 | Feature | Correlation with Sale Price |
 |---------|-----------------------------|
 PID | -0.24
@@ -137,9 +141,9 @@ MS SubClass | -0.09
 Low Qual Fin SF | -0.03
 Bsmt Half Bath | -0.03
 
-### Action Plan for Correlated Features
+### Action Plan for Inter-Correlated Features
 
-The best way to deal with correlated features is to remove one of them. We will be using the `VarianceThreshold` class from `sklearn.feature_selection` to remove features that have a variance below a certain threshold. We will be using the `ColumnTransformer` class from `sklearn.compose` to apply the `VarianceThreshold` to the appropriate columns.
+We will be using the `VarianceThreshold` class from `sklearn.feature_selection` to remove features that are highly correlated with each other. We will be using the `ColumnTransformer` class from `sklearn.compose` to apply the `VarianceThreshold` to the appropriate columns. We will be using the `fit_transform()` method to fit the `VarianceThreshold` to the data and transform the data. Lastly, we will be using the `get_support()` method to get the names of the columns that were not removed by the `VarianceThreshold`.
 
 ### Action Plan for Outliers
 
@@ -238,3 +242,181 @@ def load_and_process_data(path):
     #* save a placeholder file to keep progress in case of a crash
     df.to_csv('data/current_data/placeholder.csv')
     # next, we will be dealing with the missing values
+
+    #==================================
+    #     Dealing with Missing Values
+    #==================================
+    # We will be using the SimpleImputer class from sklearn.impute to impute the missing values
+    # We will be using the ColumnTransformer class from sklearn.compose to apply the SimpleImputer to the appropriate columns
+
+    # first we will be imputing the missing values in the Lot Frontage column, which is a numerical column
+    # we will be using the mean strategy to impute the missing values
+    # check for missing values
+    missing_values = df.isnull().sum()
+
+    # drop columns with missing values above a certain threshold
+    missing_threshold = 0.5
+    missing_values = missing_values[missing_values > 0]
+    missing_values.sort_values(inplace=True)
+    missing_values = missing_values[missing_values > missing_threshold*len(df)]
+    df = df.drop(columns=missing_values.index)
+
+    # fill missing values with the mean of the column
+    df = df.fillna(df.mean())
+
+```
+
+
+
+# Chat GPT Dialogue on this section
+
+This code first reads in the data from the csv file using pd.read_csv(), then checks for missing values using df.isnull().sum(). It then drops columns with missing values above a certain threshold (in this case, 0.5), and fills the remaining missing values with the mean of the column.
+
+You may also want to consider imputing missing values by using either mean/median/mode of the column or by using more sophisticated techniques like Linear regression imputation, Multiple imputation using MICE, etc. It's also a good idea to check the proportion of missing values in each column, and see if they are missing completely at random(MCAR), missing at random(MAR) or missing not at random(MNAR) which will help you in deciding which imputation method to use.
+
+Also, keep in mind that this is just one example of how to handle missing values, and the approach you take may depend on the specific characteristics of your data and the problem you're trying to solve.
+
+
+# Building a Linear Model with Scikit-Learn
+
+```python
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split
+
+# split the data into training and testing sets
+X = df.drop(columns='SalePrice')
+y = df['SalePrice']
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+
+# create and fit the linear regression model
+model = LinearRegression()
+model.fit(X_train, y_train)
+
+# evaluate the model on the test data
+test_score = model.score(X_test, y_test)
+print(f'Test R^2: {test_score:.2f}')
+```
+
+The results are shown below
+```output
+results
+```
+
+# Coefficient Interpretation
+
+The major perk of using models like linear regression is that they are easy to interpret. The coefficients of the model can be used to interpret the relationship between the features and the target variable.
+
+```python
+# get the coefficients of the model
+coefficients = pd.DataFrame(model.coef_, X.columns)
+coefficients.columns = ['Coefficients']
+print(coefficients)
+```
+
+The results are shown below
+```output
+results
+```
+
+# Model Deployment
+```python
+import pandas as pd
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split, GridSearchCV
+
+df = pd.read_csv('data/current_data/AmesHousing.csv')
+missing_threshold = 0.5
+missing_values = df.isnull().sum()
+missing_values = missing_values[missing_values > 0]
+missing_values.sort_values(inplace=True)
+missing_values = missing_values[missing_values > missing_threshold*len(df)]
+df = df.drop(columns=missing_values.index)
+df = df.fillna(df.mean())
+
+X = df.drop(columns='SalePrice')
+y = df['SalePrice']
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+
+param_grid = {'fit_intercept':[True,False], 'normalize':[True,False]}
+grid = GridSearchCV(LinearRegression(), param_grid, cv=5)
+grid.fit(X_train, y_train)
+
+print(grid.best_params_)
+print(grid.score(X_test, y_test))
+```
+
+This (above) is the simplest way to perform the regression. But it requires that the data is ready for modeling. In the next section, we will see how to use pipelines to automate the process of data preparation and model training.
+
+# Pipelines
+
+```python
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.impute import SimpleImputer
+from sklearn.compose import ColumnTransformer
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split, GridSearchCV
+
+df = pd.read_csv('data/current_data/AmesHousing.csv')
+missing_threshold = 0.5
+missing_values = df.isnull().sum()
+missing_values = missing_values[missing_values > 0]
+missing_values.sort_values(inplace=True)
+missing_values = missing_values[missing_values > missing_threshold*len(df)]
+df = df.drop(columns=missing_values.index)
+df = df.fillna(df.mean())
+
+X = df.drop(columns='SalePrice')
+y = df['SalePrice']
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+
+# create the pipeline
+numerical_transformer = Pipeline(steps=[
+    ('imputer', SimpleImputer(strategy='mean')),
+    ('scaler', StandardScaler())
+])
+
+preprocessor = ColumnTransformer(transformers=[
+    ('num', numerical_transformer, X_train.select_dtypes(include='number').columns)
+])
+
+pipe = Pipeline(steps=[
+    ('preprocessor', preprocessor),
+    ('regressor', LinearRegression())
+])
+
+param_grid = {'regressor__fit_intercept':[True,False]}
+grid = GridSearchCV(pipe, param_grid, cv=5)
+grid.fit(X_train, y_train)
+
+print(grid.best_params_)
+print(grid.score(X_test, y_test))
+```
+
+# Comments on the Code
+
+Pipelines are a great way to automate the process of data preparation and model training. In the code above, we have created a pipeline that performs the following steps
+
+* Imputes missing values in the numerical columns using the mean strategy
+* Scales the numerical columns using StandardScaler
+* Fits a linear regression model
+
+We can use the pipeline to perform cross validation, hyperparameter tuning, and model evaluation. This is much more convenient than performing these steps separately.
+
+```output
+{'regressor__fit_intercept': True}
+0.7824767913517001
+```
+
+# Conclusion
+
+In this article, we have seen how to perform linear regression using Scikit-Learn. We have also seen how to use pipelines to automate the process of data preparation and model training. Specifically, the pipelines we have created perform the following steps:
+1. Imputes missing values in the numerical columns using the mean strategy
+2. Scales the numerical columns using StandardScaler
+3. Fits a linear regression model
+These steps can be easily modified to perform other types of regression. For example, we can use pipelines to perform polynomial regression, ridge regression, lasso regression, and elastic net regression. These may be useful in your use-case. You can also use pipelines to perform other types of machine learning tasks, such as classification, clustering, and dimensionality reduction.
